@@ -34,7 +34,8 @@ CHARACTER_PROMPT = """
 """
 mes_limit=50
 MAX_TOKENS = 15000
-MODEL_NAME = "deepseek-chat"
+#MODEL_NAME = "deepseek-chat"
+MODEL_NAME = "gpt://b1gp8hiamodp11brum2a/yandexgpt/latest"
 
 class UserMessages:
     messages = []
@@ -52,37 +53,22 @@ intents.members = True  # Для доступа к участникам (при�
 
 bot = commands.Bot(command_prefix='>', intents=intents)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"),base_url="https://api.deepseek.com")
+#client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"),base_url="https://api.deepseek.com")
+
+client = OpenAI(api_key="AQVNw5Ep7WEMc4AkU_TcIsofrCMFOcSn70QxfIxr",base_url="https://llm.api.cloud.yandex.net/v1")
 
 async def get_recent_messages(channel, message, limit=mes_limit):
     global users_data
     messages = UserMessages()
     if message.author.name in users_data:
         messages = users_data[message.author.name]
+        messages.messages.append(message.author.name + ": " + message.content[1:])
     else:
-        user_messages = UserMessages()
-        user_messages.messages = [message.author.name + ": " + message.content[1:]]
-        user_messages.character = CHARACTER_PROMPT
-        user_messages.character_name = CHARACTER_NAME
-        users_data[message.author.name] = user_messages
+        messages.messages = [message.author.name + ": " + message.content[1:]]
+        messages.character = CHARACTER_PROMPT
+        messages.character_name = CHARACTER_NAME
+        users_data[message.author.name] = messages
 
-
-    '''async for msg in channel.history(limit=limit):
-        if ":stop " + membername in msg.content:
-            break
-        if "✅" in msg.content or ":stop " in msg.content:
-            continue
-        if msg.author.name == membername:
-            messages.append(membername + ": " + msg.content[1:])
-        if msg.author.name == bot.user.name:
-            if msg.reference:
-                replied_message = await msg.channel.fetch_message(msg.reference.message_id)
-                if membername in replied_message.author.name:
-                    messages.append(CHARACTER_NAME + ": " + msg.content)
-
-    messages = messages[::-1]
-    messages.insert(0, "<dialog>")
-    messages.append("<\dialog>")'''
     return messages
 
 def trim_history(messages, max_tokens=MAX_TOKENS):
@@ -101,22 +87,26 @@ def count_tokens(messages):
     total_tokens = 0
     for message in messages:
         total_tokens += tokens_per_message
-        total_tokens += len(encoding.encode(message[{"role": "assistant"}]))
+        total_tokens += len(encoding.encode(message))
     return total_tokens
 
 #Смена персонажа
-@bot.slash_command(name="changecharacter", description="Смена характера бота", guild_ids=[650414333091905581, 1218661591285895389])
+@bot.slash_command(name="changecharacter", description="Смена характера бота")
 async def changecharacter(ctx, arg: Option(str, description="Описание характера", required=True), arg2: Option(str, description="Имя", required=True)):
     global CHARACTER_PROMPT
     global CHARACTER_NAME
-    CHARACTER_PROMPT = "Моя роль: " + arg
-    CHARACTER_NAME = arg2
+    global users_data
+    users_data[ctx.author.name].character_prompt = "Моя роль: " + arg
+    users_data[ctx.author.name].character_name = arg2
     await ctx.respond("✅ Системный промпт обновлен! \n Теперь моя роль: " + arg)
 
 #Прекращение контекста для пользователя
-@bot.slash_command(name="stopmessage", description="Стоп слово для бота", guild_ids=[650414333091905581, 1218661591285895389])
+@bot.slash_command(name="stopmessage", description="Стоп слово для бота")
 async def stopmessage(ctx):
-    await ctx.respond(":stop " + ctx.author.name)
+    global users_data
+    if ctx.author.name in users_data:
+        users_data[ctx.author.name].messages = []
+    await ctx.respond("❎ Контекст очищен")
 
 @bot.event
 async def on_ready():
@@ -126,24 +116,28 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
-        return  # Игнорируем сообщения самого бота
+        return  
 
     if message.content.startswith("!"):
 
 
         user_messages = await get_recent_messages(message.channel,message, mes_limit)
+        user_messages.messages = trim_history(user_messages.messages)
+
         messages = user_messages.messages.copy()
         messages.insert(0, "<dialog>")
         messages.append("<\dialog>")
 
-        print({"role": "system", "content": SYSTEM_PROMT + user_messages.character_prompt + MESSAGE_FORMAT_PROMPT},
+        global users_data
+
+        print(users_data[message.author.name].character_prompt)
+        print(message.author.name)
+        print({"role": "system", "content": SYSTEM_PROMT + users_data[message.author.name].character_prompt + MESSAGE_FORMAT_PROMPT},
             {"role": "assistant", "content": "\n ".join(messages)})
         conversation = [
-            {"role": "system", "content": SYSTEM_PROMT + user_messages.character_prompt + MESSAGE_FORMAT_PROMPT},
+            {"role": "system", "content": SYSTEM_PROMT + users_data[message.author.name].character_prompt + MESSAGE_FORMAT_PROMPT},
             {"role": "assistant", "content": "\n ".join(messages)}
         ]
-
-        conversation = trim_history(conversation, MAX_TOKENS)
 
 
         try:
