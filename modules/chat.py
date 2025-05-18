@@ -15,7 +15,7 @@ class Chat():
     Нельзя добовлять от кого было это сообщение, просто ответь как обычный человек
     Не при каких обстояльвах нельзя имитировать какие-то действия указывая их, никогда.
     Твоя задача дать только устный ответ без описания действий твоей роли.
-    Диалог находится между <dialog><\dialog>
+    Диалог находится между <dialog><\\dialog>
     
     """
 
@@ -84,7 +84,7 @@ class Chat():
 
         messages = user_messages.messages.copy()
         messages.insert(0, "<dialog>")
-        messages.append("<\dialog>")
+        messages.append("<\\dialog>")
 
         print(self.users_data[message.author.name].character_prompt)
         print(message.author.name)

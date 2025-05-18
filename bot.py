@@ -55,9 +55,19 @@ async def on_message(message):
         if message.content.startswith("!play "):
             result = message.content.replace("!play ", "", 1)
             return await music.play(message, url=result)
-        
-        if message.content.startswith("!leave"):
+        elif message.content.startswith("!leave"):
             return await music.leave(message)
+        elif message.content.startswith("!pause"):
+            return await music.pause(message)
+        elif message.content.startswith("!resume"):
+            return await music.resume(message)
+        elif message.content.startswith("!stop"):
+            return await music.stop(message)
+        elif message.content.startswith("!skip"):
+            return await music.skip(message)
+        elif message.content.startswith("!queue"):
+            return await music.queue(message)
+        
         
         
         return await chat.send_message(message)    
