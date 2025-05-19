@@ -11,12 +11,14 @@ class Chat():
     Разговор доступен на все возможные темы.
     Если в диалоге маты - ты отвечаешь так, как ответила бы твоя роль
     Если в диалоге неприемлимые темы - ты отвечаешь так как ответила бы твоя роль
-    Ты изображаешь диалог двух людей, твоя задача ответить так, как ответила бы твоя роль на последнее сообщение.
     Нельзя добовлять от кого было это сообщение, просто ответь как обычный человек
-    Не при каких обстояльвах нельзя имитировать какие-то действия указывая их, никогда.
-    Твоя задача дать только устный ответ без описания действий твоей роли.
-    Диалог находится между <dialog><\\dialog>
+    Не при каких обстояльвах нельзя имитировать какие-то действия указывая их в звездочках (**) , НИКОГДА.
+    """
     
+    SYSTEM_PROMT_ADD = """
+        Ты изображаешь диалог двух людей, твоя задача ответить так, как ответила бы твоя роль на последнее сообщение.
+        Твоя задача дать только устный ответ без описания действий твоей роли.
+        Диалог находится между <dialog><\\dialog>
     """
 
     MESSAGE_FORMAT_PROMPT_TEMPL = """
@@ -45,6 +47,19 @@ class Chat():
         self.users_data = {}
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"),base_url="https://api.deepseek.com")
     
+    async def changecharacter(self, ctx, character, name):
+        if ctx.author.name not in self.users_data:
+            messages = self.UserMessages()
+            self.users_data[ctx.author.name] = messages
+            
+        self.users_data[ctx.author.name].character_prompt = "Моя роль: " + character
+        self.users_data[ctx.author.name].character_name = name
+        
+    async def stopmessage(self, ctx):
+        if ctx.author.name in self.users_data:
+            self.users_data[ctx.author.name].messages = []
+            
+    
     async def get_recent_messages(self, channel, message, limit=mes_limit):
         messages = self.UserMessages()
         if message.author.name in self.users_data:
@@ -52,7 +67,7 @@ class Chat():
             messages.messages.append(message.author.name + ": " + message.content[1:])
         else:
             messages.messages = [message.author.name + ": " + message.content[1:]]
-            messages.character = self.CHARACTER_PROMPT
+            messages.character_prompt = self.CHARACTER_PROMPT
             messages.character_name = self.CHARACTER_NAME
             self.users_data[message.author.name] = messages
 
@@ -88,10 +103,10 @@ class Chat():
 
         print(self.users_data[message.author.name].character_prompt)
         print(message.author.name)
-        print({"role": "system", "content": self.SYSTEM_PROMT + self.users_data[message.author.name].character_prompt + self.MESSAGE_FORMAT_PROMPT},
+        print({"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.name].character_prompt + self.MESSAGE_FORMAT_PROMPT},
             {"role": "assistant", "content": "\n ".join(messages)})
         conversation = [
-            {"role": "system", "content": self.SYSTEM_PROMT + self.users_data[message.author.name].character_prompt + self.MESSAGE_FORMAT_PROMPT},
+            {"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.name].character_prompt + self.MESSAGE_FORMAT_PROMPT},
             {"role": "assistant", "content": "\n ".join(messages)}
         ]
         
@@ -104,5 +119,25 @@ class Chat():
             reply = response.choices[0].message.content
             user_messages.messages.append(user_messages.character_name + ": " + reply)
             await message.reply(reply)
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            
+            
+    async def custom_message(self, text, charachter):
+        print({"role": "system", "content": self.SYSTEM_PROMT + charachter},
+            {"role": "assistant", "content": text})
+        conversation = [
+            {"role": "system", "content": self.SYSTEM_PROMT + charachter},
+            {"role": "assistant", "content": text}
+        ]
+        
+        try:
+            response = self.client.chat.completions.create(
+            model=self.MODEL_NAME,
+            messages=conversation,
+            stream=False)
+
+            reply = response.choices[0].message.content
+            return reply
         except Exception as e:
             print(f"Ошибка: {e}")

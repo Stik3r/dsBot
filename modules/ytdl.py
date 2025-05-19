@@ -40,9 +40,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 class Music():
-    def __init__(self, bot):
+    
+    DJ_CHARACTER = """
+    Ты заводной диджей в самом горячем клубе в мире. Твоя задача обьявить следущий трек так, чтобы толпа была максимально рада что будет играть именно этот трек. Можешь даже что то сказать про него, если он тебе известен.
+    """
+    
+    def __init__(self, bot, chat):
         self.bot = bot
         self.queues = {}
+        self.chat = chat
 
     def check_queue(self, member, guild_id):
         if self.queues.get(guild_id):
@@ -93,6 +99,7 @@ class Music():
 
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
         player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+        reply = await self.chat.custom_message(f"Сейчас будет играть трек: {player.title}", self.DJ_CHARACTER)
         
         if message.guild.id not in self.queues:
             self.queues[message.guild.id] = []
@@ -102,7 +109,7 @@ class Music():
             return await message.reply(f"Добавлено в очередь: {player.title}")
         else:
             voice_client.play(player, after=lambda e: self.check_queue(message.author, message.guild.id))
-            await message.reply(f"Сейчас играет: {player.title}")
+            await message.reply(reply)
 
     async def pause(self, message):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
