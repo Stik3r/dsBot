@@ -1,18 +1,12 @@
 import os
 import discord
-import asyncio
-import subprocess
+import whisper
 from datetime import datetime 
-import numpy as np
 from discord.ext import commands
 from dotenv import load_dotenv
 from discord import Option
 from modules.ytdl import Music
 from modules.chat import Chat
-
-SAMPLE_RATE = 48000  # Частота дискретизации
-SILENCE_THRESHOLD = 0.01  # Порог тишины (0.0 - 1.0)
-CHUNK_SIZE = 1024
 
 load_dotenv()
 
@@ -22,12 +16,11 @@ intents.message_content = True  # Для чтения текста сообще�
 intents.members = True  # Для доступа к участникам (привилегированный!)
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix='>', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents)
 chat = Chat()
 music = Music(bot, chat)
 
-
-
+model = whisper.load_model("small")
 
 #Смена персонажа
 @bot.slash_command(name="changecharacter", description="Смена характера бота")
@@ -79,47 +72,38 @@ async def on_message(message):
         
         return await chat.send_message(message)  
     
-@bot.event
-async def on_voice_state_update(member, before, after):
-    # Проверяем, был ли пользователь в канале и начал говорить
-    if before.channel is not None and after.channel is not None:
-        # Если у пользователя изменился статус "говорит" (микрофон активирован)
-        if before.self_stream != after.self_stream or before.self_video != after.self_video:
-            pass  # Можно добавить логику
-        
-        # Если пользователь начал говорить (микрофон включен)
-        if not before.self_mute and after.self_mute:  # Если был немой, а стал нет
-            print(f"{member.name} начал говорить!")
-        
-        # Если пользователь замьютился (перестал говорить)
-        if before.self_mute and not after.self_mute:
-            print(f"{member.name} перестал говорить!")
-
 async def start_recording(message):
     await music.join(message)
-    
-
-    # Создаем sink для записи аудио
     voice_client = discord.utils.get(bot.voice_clients, guild=message.guild)
     sink = discord.sinks.MP3Sink()
+    
     voice_client.start_recording(
         sink,
         finished_callback,
         message.channel,
     )
-
+        
     await message.reply(f"Начал запись в канале {voice_client.channel.name}!")
 
 async def finished_callback(sink, channel, *args):
-    await sink.vc.disconnect()
     
     for user_id, audio in sink.audio_data.items():
         user = await channel.guild.fetch_member(user_id)
         filename = f"{user.name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp3"
         with open(filename, "wb") as f:
-            f.write(audio.file.read())
-        #await channel.send(f"Запись пользователя {user.mention} сохранена как {filename}.")
-    
+            f.write(audio.file.getbuffer())
+
+
+        result = model.transcribe(filename, language="ru")
+        print(result)
+        if len(result['text']) != 0:
+            print(len(result["text"]))
+        else:
+            print("Я лох")
+        
+        os.remove(filename)
+        
+        
 async def stop_recording(message):
     voice_client = message.guild.voice_client
     if not voice_client or not voice_client.recording:
@@ -128,7 +112,6 @@ async def stop_recording(message):
 
     voice_client.stop_recording()
     await message.reply("Запись остановлена!")
-
 
 bot.run(os.getenv("DISCORD_TOKEN"))
 

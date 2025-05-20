@@ -47,6 +47,7 @@ class Chat():
         self.users_data = {}
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"),base_url="https://api.deepseek.com")
     
+    #Смена характера бота
     async def changecharacter(self, ctx, character, name):
         if ctx.author.name not in self.users_data:
             messages = self.UserMessages()
@@ -59,8 +60,8 @@ class Chat():
         if ctx.author.name in self.users_data:
             self.users_data[ctx.author.name].messages = []
             
-    
-    async def get_recent_messages(self, channel, message, limit=mes_limit):
+    #Получает все сообщения для данного юзера
+    async def get_recent_messages(self, message):
         messages = self.UserMessages()
         if message.author.name in self.users_data:
             messages = self.users_data[message.author.name]
@@ -73,28 +74,31 @@ class Chat():
 
         return messages
 
+    #Режет сообщения если токенов больше чем контекст
+    #Я правда не знаю действительно ли это работат, я столько с ботом не переписывался, сколько конеткст поставил
     def trim_history(self, messages, max_tokens=MAX_TOKENS):
         while self.count_tokens(messages) > max_tokens:
-            messages.pop(1)  # Удаляем самое старое сообщение (после системного промпта)
+            messages.pop(1)
         return messages
 
-    #Подсчет токенов, хз на сколько это эффективно
+    #Собственно сам подсчет токенов
     def count_tokens(self, messages):
         try:
             encoding = tiktoken.encoding_for_model("cl100k_base")
         except KeyError:
             encoding = tiktoken.get_encoding("cl100k_base")
 
-        tokens_per_message = 4  # Эмпирическая константа для gpt-3.5/4
+        tokens_per_message = 4
         total_tokens = 0
         for message in messages:
             total_tokens += tokens_per_message
             total_tokens += len(encoding.encode(message))
         return total_tokens
     
+    #Отправка сообщения с тем характером, что юзер задал
     async def send_message(self, message):
         
-        user_messages = await self.get_recent_messages(message.channel,message, self.mes_limit)
+        user_messages = await self.get_recent_messages(message)
         user_messages.messages = self.trim_history(user_messages.messages)
 
         messages = user_messages.messages.copy()
@@ -122,7 +126,7 @@ class Chat():
         except Exception as e:
             print(f"Ошибка: {e}")
             
-            
+    #Просто отправка сообщения        
     async def custom_message(self, text, charachter):
         print({"role": "system", "content": self.SYSTEM_PROMT + charachter},
             {"role": "assistant", "content": text})

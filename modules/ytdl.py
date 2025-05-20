@@ -21,6 +21,7 @@ ffmpeg_options = {
 
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
+#Класс загрузки видосика
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
         super().__init__(source, volume)
@@ -39,10 +40,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
+#Сам диджей
 class Music():
     
     DJ_CHARACTER = """
-    Ты заводной диджей в самом горячем клубе в мире. Твоя задача обьявить следущий трек так, чтобы толпа была максимально рада что будет играть именно этот трек. Можешь даже что то сказать про него, если он тебе известен.
+    Ты заводной диджей в самом горячем клубе в мире. 
+    Твоя задача обьявить следущий трек так, чтобы толпа была максимально рада что будет играть именно этот трек. 
+    Можешь даже что то сказать про него, если он тебе известен.
     """
     
     def __init__(self, bot, chat):
@@ -77,7 +81,6 @@ class Music():
         else:
             await channel.connect()
 
-        #await message.reply(f"Присоединился к {channel.name}")
 
     async def leave(self, message):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
