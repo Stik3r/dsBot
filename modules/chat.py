@@ -1,8 +1,5 @@
 import os
-import discord
-from discord.ext import commands
 from openai import OpenAI
-from dotenv import load_dotenv
 import tiktoken  # Для подсчёта токенов
 
 class Chat():

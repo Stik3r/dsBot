@@ -77,9 +77,9 @@ class Music():
         channel = message.author.voice.channel
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
         if voice_client is not None:
-            await voice_client.move_to(channel)
+            return await voice_client.move_to(channel)
         else:
-            await channel.connect()
+            return await channel.connect()
 
 
     async def leave(self, message):

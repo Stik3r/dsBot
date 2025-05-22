@@ -1,12 +1,17 @@
 import os
 import discord
 import whisper
+import asyncio
+import copy
 from datetime import datetime 
 from discord.ext import commands
 from dotenv import load_dotenv
 from discord import Option
 from modules.ytdl import Music
 from modules.chat import Chat
+from voice_interface.sinks import StreamSink
+from voice_interface.stt import speech_to_text
+from voice_interface import VoiceCommandInterface
 
 load_dotenv()
 
@@ -21,6 +26,8 @@ chat = Chat()
 music = Music(bot, chat)
 
 model = whisper.load_model("small")
+voice_interface = VoiceCommandInterface(bot, speech_to_text, model)
+recording = False;
 
 #Смена персонажа
 @bot.slash_command(name="changecharacter", description="Смена характера бота")
@@ -36,6 +43,7 @@ async def stopmessage(ctx):
 
 @bot.event
 async def on_ready():
+    result = model.transcribe("decoder-test.wav", language="ru")
     print(f"Бот {bot.user} готов!")
 
 #Обработка сообщений
@@ -73,35 +81,55 @@ async def on_message(message):
         return await chat.send_message(message)  
     
 async def start_recording(message):
-    await music.join(message)
-    voice_client = discord.utils.get(bot.voice_clients, guild=message.guild)
-    sink = discord.sinks.MP3Sink()
+    vc = await music.join(message)
+
+    #voice_client = discord.utils.get(bot.voice_clients, guild=message.guild)
+    sink = StreamSink()
     
-    voice_client.start_recording(
-        sink,
-        finished_callback,
-        message.channel,
-    )
+    vc.start_recording(sink, lambda x, y: x, message.channel)
+    
+    
+
+    await voice_interface.start_listening(vc, sink, message.author.id)
+    
+async def save_current_recording(sink, channel):
+    # Копируем текущие данные и сбрасываем sink для новой записи
+    audio_data = sink.audio_data.copy()
+    sink.audio_data.clear()  # Очищаем, чтобы не дублировать данные
+    
+    for user_id, audio in audio_data.items():
+        user = await channel.guild.fetch_member(user_id)
+        filename = f"{user.name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.wav"
+        with open(filename, "wb") as f:
+            f.write(audio.file.getbuffer())
+         
         
-    await message.reply(f"Начал запись в канале {voice_client.channel.name}!")
+   
 
 async def finished_callback(sink, channel, *args):
-    
+    await save_current_recording(sink, channel)
+    await channel.send("Запись завершена!")  
+    """
+    filename = ""
     for user_id, audio in sink.audio_data.items():
         user = await channel.guild.fetch_member(user_id)
-        filename = f"{user.name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp3"
+        
+        filename = f"{user.name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp3"    
+        
         with open(filename, "wb") as f:
             f.write(audio.file.getbuffer())
 
-
-        result = model.transcribe(filename, language="ru")
-        print(result)
-        if len(result['text']) != 0:
-            print(len(result["text"]))
-        else:
-            print("Я лох")
         
-        os.remove(filename)
+
+    result = model.transcribe(filename, language="ru")
+    print(result)
+    if len(result['text']) != 0:
+        print(len(result["text"]))
+    else:
+        print("Я лох")
+        
+    os.remove(filename)
+    """
         
         
 async def stop_recording(message):
@@ -109,8 +137,8 @@ async def stop_recording(message):
     if not voice_client or not voice_client.recording:
         await message.reply("Сейчас нет активной записи!")
         return
-
     voice_client.stop_recording()
+    
     await message.reply("Запись остановлена!")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
