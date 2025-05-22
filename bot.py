@@ -3,6 +3,7 @@ import discord
 import whisper
 import asyncio
 import copy
+import vosk
 from datetime import datetime 
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ from discord import Option
 from modules.ytdl import Music
 from modules.chat import Chat
 from voice_interface.sinks import StreamSink
-from voice_interface.stt import speech_to_text
+from voice_interface.stt import detect_words, speech_to_text
 from voice_interface import VoiceCommandInterface
 
 load_dotenv()
@@ -25,9 +26,11 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 chat = Chat()
 music = Music(bot, chat)
 
-model = whisper.load_model("small")
-voice_interface = VoiceCommandInterface(bot, speech_to_text, model)
-recording = False;
+main_model = whisper.load_model("small")
+small_model = vosk.Model("vosk-model-small-ru")
+voice_interface = VoiceCommandInterface(bot, speech_to_text, detect_words, main_model, small_model, chat)
+
+asinkTask = None
 
 #Смена персонажа
 @bot.slash_command(name="changecharacter", description="Смена характера бота")
@@ -43,7 +46,6 @@ async def stopmessage(ctx):
 
 @bot.event
 async def on_ready():
-    result = model.transcribe("decoder-test.wav", language="ru")
     print(f"Бот {bot.user} готов!")
 
 #Обработка сообщений
@@ -88,9 +90,8 @@ async def start_recording(message):
     
     vc.start_recording(sink, lambda x, y: x, message.channel)
     
-    
-
-    await voice_interface.start_listening(vc, sink, message.author.id)
+    global asinkTask
+    asinkTask = await voice_interface.start_listening(message, sink, message.author.id)
     
 async def save_current_recording(sink, channel):
     # Копируем текущие данные и сбрасываем sink для новой записи
@@ -103,12 +104,10 @@ async def save_current_recording(sink, channel):
         with open(filename, "wb") as f:
             f.write(audio.file.getbuffer())
          
-        
-   
 
-async def finished_callback(sink, channel, *args):
-    await save_current_recording(sink, channel)
-    await channel.send("Запись завершена!")  
+#async def finished_callback(sink, channel, *args):
+    
+
     """
     filename = ""
     for user_id, audio in sink.audio_data.items():
@@ -138,6 +137,8 @@ async def stop_recording(message):
         await message.reply("Сейчас нет активной записи!")
         return
     voice_client.stop_recording()
+    if asinkTask:
+        asinkTask.stop()
     
     await message.reply("Запись остановлена!")
 

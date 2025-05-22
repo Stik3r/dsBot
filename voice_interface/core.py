@@ -3,10 +3,13 @@ from pydub.utils import audioop
 from pydub.exceptions import CouldntEncodeError
 from tempfile import NamedTemporaryFile
 from discord.ext import tasks
+from datetime import datetime
+import glob
 import wave
 import subprocess
 import io
 import os
+
 
 def save_and_mono_wav(data: bytearray, sample_size = 2, channels = 2, sampling_rate = 48000):
     segment = NoFileAudioSegment(
@@ -18,13 +21,38 @@ def save_and_mono_wav(data: bytearray, sample_size = 2, channels = 2, sampling_r
     segment = segment.set_channels(1)
     return segment.export(format="wav")
 
+def make_file(file_pattern, user_id):
+    matching_files = glob.glob(file_pattern)
+    if matching_files:
+        return files_merge(matching_files, user_id)
+    else:
+        return None
+    
+def files_merge(matching_files, user_id):
+    output_file = f"merged_{user_id}.wav"
+    
+    with wave.open(output_file, 'wb') as out_file:
+    # Берём параметры из первого файла
+        with wave.open(matching_files[0], 'rb') as first_file:
+            out_file.setparams(first_file.getparams())
+
+    # Записываем данные из всех файлов
+        for file in matching_files:
+            with wave.open(file, 'rb') as in_file:
+                out_file.writeframes(in_file.readframes(in_file.getnframes()))
+                
+            os.remove(file)
+    return output_file
+
 class VoiceCommandInterface():
     
-    def __init__(self, bot, language_processor, model, ):
+    def __init__(self, bot, language_processor, word_detector, main_model, small_model, chat):
         self.bot = bot
         self.language_processor = language_processor
-        self.model = model
-        self.commands = {}
+        self.word_detector = word_detector
+        self.main_model = main_model
+        self.small_model = small_model
+        self.chat = chat
         self.active_tasks = []
     
     def voice_command(self,function):
@@ -37,10 +65,10 @@ class VoiceCommandInterface():
             return args
         return wrapper
 
-    async def start_listening(self, vc, sink, user_id, interval=4):
+    async def start_listening(self, message, sink, user_id, interval=4):
         
         @tasks.loop(seconds=interval)
-        async def listening_task():
+        async def listening_task(message):
             try:
                 data = sink.read(user_id)
             except KeyError:
@@ -50,10 +78,23 @@ class VoiceCommandInterface():
                 data
             )
 
-            words = self.language_processor(wf, self.model)
-            print(words)
+            words = self.word_detector(wf, self.small_model)
+            if len(words) != 0:
+                with open(f"{user_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.wav", "wb") as file:
+                    file.write(wf.getbuffer())
+            else:
+                
+                filename = make_file(f"{user_id}_*.wav", user_id)
+                if filename:
+                    result = self.language_processor(filename, self.main_model)
+                    message.content = "!" + result
+                    print(await self.chat.send_message(message))
+                
+                
+                
 
-        listening_task.start()
+            
+        listening_task.start(message)
         return listening_task # call .stop() on the returned task to stop the task
 
     def _map_words_to_command(self, words):

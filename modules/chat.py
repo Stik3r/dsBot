@@ -16,6 +16,7 @@ class Chat():
         Ты изображаешь диалог двух людей, твоя задача ответить так, как ответила бы твоя роль на последнее сообщение.
         Твоя задача дать только устный ответ без описания действий твоей роли.
         Диалог находится между <dialog><\\dialog>
+        Не используй смайлики в ответах
     """
 
     MESSAGE_FORMAT_PROMPT_TEMPL = """
@@ -24,7 +25,7 @@ class Chat():
         Долгое обсуждение одной темы не разрешено
     """
 
-    MESSAGE_FORMAT_PROMPT = MESSAGE_FORMAT_PROMPT_TEMPL
+    MESSAGE_FORMAT_PROMPT = " "
 
     CHARACTER_NAME = "person"
     CHARACTER_PROMPT = """
@@ -46,28 +47,28 @@ class Chat():
     
     #Смена характера бота
     async def changecharacter(self, ctx, character, name):
-        if ctx.author.name not in self.users_data:
+        if ctx.author.id not in self.users_data:
             messages = self.UserMessages()
-            self.users_data[ctx.author.name] = messages
+            self.users_data[ctx.author.id] = messages
             
-        self.users_data[ctx.author.name].character_prompt = "Моя роль: " + character
-        self.users_data[ctx.author.name].character_name = name
+        self.users_data[ctx.author.id].character_prompt = "Моя роль: " + character
+        self.users_data[ctx.author.id].character_name = name
         
     async def stopmessage(self, ctx):
-        if ctx.author.name in self.users_data:
-            self.users_data[ctx.author.name].messages = []
+        if ctx.author.id in self.users_data:
+            self.users_data[ctx.author.id].messages = []
             
     #Получает все сообщения для данного юзера
     async def get_recent_messages(self, message):
         messages = self.UserMessages()
-        if message.author.name in self.users_data:
-            messages = self.users_data[message.author.name]
+        if message.author.id in self.users_data:
+            messages = self.users_data[message.author.id]
             messages.messages.append(message.author.name + ": " + message.content[1:])
         else:
             messages.messages = [message.author.name + ": " + message.content[1:]]
             messages.character_prompt = self.CHARACTER_PROMPT
             messages.character_name = self.CHARACTER_NAME
-            self.users_data[message.author.name] = messages
+            self.users_data[message.author.id] = messages
 
         return messages
 
@@ -102,12 +103,12 @@ class Chat():
         messages.insert(0, "<dialog>")
         messages.append("<\\dialog>")
 
-        print(self.users_data[message.author.name].character_prompt)
+        print(self.users_data[message.author.id].character_prompt)
         print(message.author.name)
-        print({"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.name].character_prompt + self.MESSAGE_FORMAT_PROMPT},
+        print({"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.id].character_prompt + self.MESSAGE_FORMAT_PROMPT},
             {"role": "assistant", "content": "\n ".join(messages)})
         conversation = [
-            {"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.name].character_prompt + self.MESSAGE_FORMAT_PROMPT},
+            {"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.id].character_prompt + self.MESSAGE_FORMAT_PROMPT},
             {"role": "assistant", "content": "\n ".join(messages)}
         ]
         
