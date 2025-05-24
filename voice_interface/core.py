@@ -9,6 +9,7 @@ import wave
 import subprocess
 import io
 import os
+import time
 
 
 def save_and_mono_wav(data: bytearray, sample_size = 2, channels = 2, sampling_rate = 48000):
@@ -46,13 +47,14 @@ def files_merge(matching_files, user_id):
 
 class VoiceCommandInterface():
     
-    def __init__(self, bot, language_processor, word_detector, main_model, small_model, chat):
+    def __init__(self, bot, language_processor, word_detector, main_model, small_model, chat, music):
         self.bot = bot
         self.language_processor = language_processor
         self.word_detector = word_detector
         self.main_model = main_model
         self.small_model = small_model
         self.chat = chat
+        self.music = music
         self.active_tasks = []
     
     def voice_command(self,function):
@@ -65,7 +67,7 @@ class VoiceCommandInterface():
             return args
         return wrapper
 
-    async def start_listening(self, message, sink, user_id, interval=4):
+    async def start_listening(self, message, sink, user_id, interval=2):
         
         @tasks.loop(seconds=interval)
         async def listening_task(message):
@@ -77,18 +79,21 @@ class VoiceCommandInterface():
             wf = save_and_mono_wav(
                 data
             )
-
             words = self.word_detector(wf, self.small_model)
             if len(words) != 0:
                 with open(f"{user_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.wav", "wb") as file:
                     file.write(wf.getbuffer())
             else:
-                
+                start_time = time.time()
                 filename = make_file(f"{user_id}_*.wav", user_id)
+                print("--- %s seconds ---" % (time.time() - start_time))
                 if filename:
+                    start_time = time.time()
                     result = self.language_processor(filename, self.main_model)
+                    print("--- %s seconds ---" % (time.time() - start_time))
                     message.content = "!" + result
-                    print(await self.chat.send_message(message))
+                    
+                    await self.music.say(message, await self.chat.send_message(message))
                 
                 
                 

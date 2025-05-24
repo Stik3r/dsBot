@@ -1,8 +1,8 @@
 import discord
-from discord.ext import commands
-from discord import Option
 import yt_dlp
 import asyncio
+import time
+from gtts import gTTS
 
 # Настройки для yt-dlp
 ytdl_format_options = {
@@ -53,6 +53,8 @@ class Music():
         self.bot = bot
         self.queues = {}
         self.chat = chat
+        self.guild_voice_client = {}
+        #self.model = TTS("tts_models/multilingual/multi-dataset/xtts_v2", ).to("cuda")
 
     def check_queue(self, member, guild_id):
         if self.queues.get(guild_id):
@@ -76,11 +78,12 @@ class Music():
 
         channel = message.author.voice.channel
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
-        if voice_client is not None:
-            return await voice_client.move_to(channel)
-        else:
-            return await channel.connect()
-
+        if voice_client is None:
+            self.guild_voice_client[message.guild] = await channel.connect()
+            return self.guild_voice_client[message.guild]
+        elif voice_client.channel != channel:
+            self.guild_voice_client[message.guild] = await voice_client.move_to(channel)
+            return self.guild_voice_client[message.guild]
 
     async def leave(self, message):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
@@ -113,7 +116,24 @@ class Music():
         else:
             voice_client.play(player, after=lambda e: self.check_queue(message.author, message.guild.id))
             await message.reply(reply)
-
+            
+    async def say(self, message, text):
+        if message.author.voice is None:
+             return await message.reply("Вы не в голосовом канале!")
+        print(self.guild_voice_client[message.guild])
+        channel = message.author.voice.channel
+        vc = self.guild_voice_client[message.guild]
+        
+        start_time = time.time()
+            #self.model.tts_to_file(text, speaker_wav="speaker.wav", language="ru", file_path="answer.wav")
+        tts = gTTS(text, lang='ru')
+        tts.save('answer.mp3')
+        print("--- %s seconds ---" % (time.time() - start_time))
+                        
+        vc.play(discord.FFmpegPCMAudio("answer.mp3"))
+        
+            
+                            
     async def pause(self, message):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
         if voice_client.is_playing():

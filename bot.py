@@ -1,8 +1,6 @@
 import os
 import discord
 import whisper
-import asyncio
-import copy
 import vosk
 from datetime import datetime 
 from discord.ext import commands
@@ -28,7 +26,7 @@ music = Music(bot, chat)
 
 main_model = whisper.load_model("small")
 small_model = vosk.Model("vosk-model-small-ru")
-voice_interface = VoiceCommandInterface(bot, speech_to_text, detect_words, main_model, small_model, chat)
+voice_interface = VoiceCommandInterface(bot, speech_to_text, detect_words, main_model, small_model, chat, music)
 
 asinkTask = None
 

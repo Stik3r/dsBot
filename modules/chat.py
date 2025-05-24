@@ -97,16 +97,16 @@ class Chat():
     async def send_message(self, message):
         
         user_messages = await self.get_recent_messages(message)
-        user_messages.messages = self.trim_history(user_messages.messages)
+        #user_messages.messages = self.trim_history(user_messages.messages)
 
         messages = user_messages.messages.copy()
         messages.insert(0, "<dialog>")
         messages.append("<\\dialog>")
 
-        print(self.users_data[message.author.id].character_prompt)
-        print(message.author.name)
-        print({"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.id].character_prompt + self.MESSAGE_FORMAT_PROMPT},
-            {"role": "assistant", "content": "\n ".join(messages)})
+        #print(self.users_data[message.author.id].character_prompt)
+        #print(message.author.name)
+        #print({"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.id].character_prompt + self.MESSAGE_FORMAT_PROMPT},
+        #    {"role": "assistant", "content": "\n ".join(messages)})
         conversation = [
             {"role": "system", "content": self.SYSTEM_PROMT + self.SYSTEM_PROMT_ADD + self.users_data[message.author.id].character_prompt + self.MESSAGE_FORMAT_PROMPT},
             {"role": "assistant", "content": "\n ".join(messages)}
@@ -120,7 +120,7 @@ class Chat():
 
             reply = response.choices[0].message.content
             user_messages.messages.append(user_messages.character_name + ": " + reply)
-            await message.reply(reply)
+            return reply
         except Exception as e:
             print(f"Ошибка: {e}")
             
