@@ -45,7 +45,7 @@ def files_merge(matching_files, user_id):
             os.remove(file)
     return output_file
 
-class VoiceCommandInterface():
+class VoiceCommandInterface:
     
     def __init__(self, bot, language_processor, word_detector, main_model, small_model, chat, music):
         self.bot = bot
@@ -56,6 +56,7 @@ class VoiceCommandInterface():
         self.chat = chat
         self.music = music
         self.active_tasks = []
+        self.not_working = True
     
     def voice_command(self,function):
         """
@@ -79,21 +80,25 @@ class VoiceCommandInterface():
             wf = save_and_mono_wav(
                 data
             )
+            
+            
             words = self.word_detector(wf, self.small_model)
-            if len(words) != 0:
+            if len(words) != 0 and self.not_working:
                 with open(f"{user_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.wav", "wb") as file:
                     file.write(wf.getbuffer())
-            else:
+            elif len(words) == 0 and self.not_working:
+                self.not_working = False
                 start_time = time.time()
                 filename = make_file(f"{user_id}_*.wav", user_id)
-                print("--- %s seconds ---" % (time.time() - start_time))
                 if filename:
                     start_time = time.time()
                     result = self.language_processor(filename, self.main_model)
-                    print("--- %s seconds ---" % (time.time() - start_time))
+                    print("%s Достаю слова из вав файла" % (time.time() - start_time))
                     message.content = "!" + result
                     
                     await self.music.say(message, await self.chat.send_message(message))
+                self.not_working = True
+                    
                 
                 
                 

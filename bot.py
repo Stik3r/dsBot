@@ -15,10 +15,6 @@ from voice_interface import VoiceCommandInterface
 load_dotenv()
 
 intents = discord.Intents.all()
-intents.messages = True  # Для работы с сообщениями
-intents.message_content = True  # Для чтения текста сообщений (привилегированный!)
-intents.members = True  # Для доступа к участникам (привилегированный!)
-intents.voice_states = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 chat = Chat()
@@ -78,7 +74,7 @@ async def on_message(message):
         
         
         
-        return await chat.send_message(message)  
+        return await message.reply(await chat.send_message(message))
     
 async def start_recording(message):
     vc = await music.join(message)
@@ -101,32 +97,6 @@ async def save_current_recording(sink, channel):
         filename = f"{user.name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.wav"
         with open(filename, "wb") as f:
             f.write(audio.file.getbuffer())
-         
-
-#async def finished_callback(sink, channel, *args):
-    
-
-    """
-    filename = ""
-    for user_id, audio in sink.audio_data.items():
-        user = await channel.guild.fetch_member(user_id)
-        
-        filename = f"{user.name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp3"    
-        
-        with open(filename, "wb") as f:
-            f.write(audio.file.getbuffer())
-
-        
-
-    result = model.transcribe(filename, language="ru")
-    print(result)
-    if len(result['text']) != 0:
-        print(len(result["text"]))
-    else:
-        print("Я лох")
-        
-    os.remove(filename)
-    """
         
         
 async def stop_recording(message):

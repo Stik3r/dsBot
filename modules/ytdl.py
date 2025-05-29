@@ -4,25 +4,25 @@ import asyncio
 import time
 from gtts import gTTS
 
-# Настройки для yt-dlp
-ytdl_format_options = {
-    'format': 'bestaudio/best',
-    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
-    'restrictfilenames': True,
-    'noplaylist': True,
-    'cookiefile': 'cookies.txt',
-    'verbose': True,
-}
-
-ffmpeg_options = {
-    'options': '-vn',
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-}
-
-ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
-
 #Класс загрузки видосика
 class YTDLSource(discord.PCMVolumeTransformer):
+
+    ytdl_format_options = {
+        'format': 'bestaudio/best',
+        'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+        'restrictfilenames': True,
+        'noplaylist': True,
+        'cookiefile': 'cookies.txt',
+        'verbose': True,
+    }
+
+    ffmpeg_options = {
+        'options': '-vn',
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    }
+
+    ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
+
     def __init__(self, source, *, data, volume=0.5):
         super().__init__(source, volume)
         self.data = data
@@ -32,16 +32,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
         loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+        data = await loop.run_in_executor(None, lambda: cls.ytdl.extract_info(url, download=not stream))
 
         if 'entries' in data:
             data = data['entries'][0]
 
-        filename = data['url'] if stream else ytdl.prepare_filename(data)
-        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+        filename = data['url'] if stream else cls.ytdl.prepare_filename(data)
+        return cls(discord.FFmpegPCMAudio(filename, **cls.ffmpeg_options), data=data)
 
 #Сам диджей
-class Music():
+class Music:
     
     DJ_CHARACTER = """
     Ты заводной диджей в самом горячем клубе в мире. 
@@ -54,7 +54,6 @@ class Music():
         self.queues = {}
         self.chat = chat
         self.guild_voice_client = {}
-        #self.model = TTS("tts_models/multilingual/multi-dataset/xtts_v2", ).to("cuda")
 
     def check_queue(self, member, guild_id):
         if self.queues.get(guild_id):
@@ -99,13 +98,13 @@ class Music():
         channel = message.author.voice.channel
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
         if voice_client is None:
-            await channel.connect()
+            voice_client = await channel.connect()
         elif voice_client.channel != channel:
-            await voice_client.move_to(channel)
+            voice_client = await voice_client.move_to(channel)
 
-        voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
+
         player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-        reply = await self.chat.custom_message(f"Сейчас будет играть трек: {player.title}", self.DJ_CHARACTER)
+        #reply = await self.chat.custom_message(f"Сейчас будет играть трек: {player.title}", self.DJ_CHARACTER)
         
         if message.guild.id not in self.queues:
             self.queues[message.guild.id] = []
@@ -115,25 +114,24 @@ class Music():
             return await message.reply(f"Добавлено в очередь: {player.title}")
         else:
             voice_client.play(player, after=lambda e: self.check_queue(message.author, message.guild.id))
-            await message.reply(reply)
+            #await message.reply(reply)
             
     async def say(self, message, text):
         if message.author.voice is None:
              return await message.reply("Вы не в голосовом канале!")
-        print(self.guild_voice_client[message.guild])
-        channel = message.author.voice.channel
+        start_time = time.time()
         vc = self.guild_voice_client[message.guild]
+        print("%s Время получения гильдии" % (time.time() - start_time))
         
         start_time = time.time()
-            #self.model.tts_to_file(text, speaker_wav="speaker.wav", language="ru", file_path="answer.wav")
         tts = gTTS(text, lang='ru')
         tts.save('answer.mp3')
-        print("--- %s seconds ---" % (time.time() - start_time))
+        print("%s Время текста в голос" % (time.time() - start_time))
                         
         vc.play(discord.FFmpegPCMAudio("answer.mp3"))
         
             
-                            
+
     async def pause(self, message):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=message.guild)
         if voice_client.is_playing():

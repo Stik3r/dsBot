@@ -36,7 +36,6 @@ def speech_to_text(filename, model):
         trimmed_audio = audio[start_trim:]
 
         # Сохраняем в памяти (в формат WAV)
-        audio_io = io.BytesIO()
         trimmed_audio.export(filename, format="wav")
        
   
