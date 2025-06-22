@@ -6,6 +6,8 @@ from datetime import datetime
 from discord.ext import commands
 from dotenv import load_dotenv
 from discord import Option
+
+from modules.role_manager import RoleManager
 from modules.ytdl import Music
 from modules.chat import Chat
 from voice_interface.sinks import StreamSink
@@ -19,6 +21,7 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
 chat = Chat()
 music = Music(bot, chat)
+role_manager = RoleManager(bot)
 
 main_model = whisper.load_model("small")
 small_model = vosk.Model("vosk-model-small-ru")
@@ -71,6 +74,8 @@ async def on_message(message):
             return await start_recording(message)
         elif message.content.startswith("!endrecord"):
             return await stop_recording(message)
+        elif message.content.startswith("!role"):
+            return await role_manager.create_role(message, "admin", 0, 0, 0)
         
         
         

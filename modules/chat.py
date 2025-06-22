@@ -2,6 +2,7 @@ import tiktoken  # Для подсчёта токенов
 
 
 from modules.models_configs.deepseek import DeepseekConfig
+from utils.log_manager import LogManager
 
 
 class Chat:
@@ -20,6 +21,7 @@ class Chat:
     
     
     def __init__(self):
+        self.log_manager = LogManager()
         self.config = DeepseekConfig()
         self.users_data = {}
         self.client = self.config.create_openai_client()
@@ -32,6 +34,8 @@ class Chat:
             
         self.users_data[ctx.author.id].character_prompt = "Моя роль: " + character
         self.users_data[ctx.author.id].character_name = name
+
+        self.log_manager.logging(self.users_data[ctx.author.id].character_prompt)
         
     async def stopmessage(self, ctx):
         if ctx.author.id in self.users_data:
@@ -78,7 +82,7 @@ class Chat:
         user_messages.messages = self.trim_history(user_messages.messages)
 
 
-        reply = self.config.send_message(user_messages.messages.copy(), user_messages.character_name)
+        reply = self.config.send_message(user_messages.messages.copy(), user_messages.character_prompt)
         user_messages.messages.append(user_messages.character_name + ": " + reply)
 
         return reply

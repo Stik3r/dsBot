@@ -56,7 +56,8 @@ class VoiceCommandInterface:
         self.chat = chat
         self.music = music
         self.active_tasks = []
-        self.not_working = True
+        self.processing_flags = {}
+        self.processing_locks = {}
     
     def voice_command(self,function):
         """
@@ -80,24 +81,33 @@ class VoiceCommandInterface:
             wf = save_and_mono_wav(
                 data
             )
-            
+
+            if self.processing_flags[user_id]:
+                return
             
             words = self.word_detector(wf, self.small_model)
-            if len(words) != 0 and self.not_working:
+            if len(words) != 0:
                 with open(f"{user_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.wav", "wb") as file:
                     file.write(wf.getbuffer())
-            elif len(words) == 0 and self.not_working:
-                self.not_working = False
-                start_time = time.time()
+            elif len(words) == 0:
+
+                async with self.processing_locks[user_id]:
+                    if self.processing_flags[user_id]:
+                        return
+                    self.processing_flags[user_id] = True
+
                 filename = make_file(f"{user_id}_*.wav", user_id)
-                if filename:
-                    start_time = time.time()
-                    result = self.language_processor(filename, self.main_model)
-                    print("%s Достаю слова из вав файла" % (time.time() - start_time))
-                    message.content = "!" + result
-                    
-                    await self.music.say(message, await self.chat.send_message(message))
-                self.not_working = True
+                try:
+                    if filename:
+                        start_time = time.time()
+                        result = self.language_processor(filename, self.main_model)
+                        print("%s Достаю слова из вав файла" % (time.time() - start_time))
+                        message.content = "!" + result
+
+                        await self.music.say(message, await self.chat.send_message(message))
+                finally:
+                    async with self.processing_locks[user_id]:
+                        self.processing_flags[user_id] = False
                     
                 
                 
