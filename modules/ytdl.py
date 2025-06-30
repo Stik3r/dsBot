@@ -2,6 +2,7 @@ import discord
 import yt_dlp
 import asyncio
 import time
+import subprocess
 from gtts import gTTS
 
 #Класс загрузки видосика
@@ -49,11 +50,12 @@ class Music:
     Можешь даже что то сказать про него, если он тебе известен.
     """
     
-    def __init__(self, bot, chat):
+    def __init__(self, bot, chat, bypass_path):
         self.bot = bot
         self.queues = {}
         self.chat = chat
         self.guild_voice_client = {}
+        self.bypass_path = bypass_path
 
     def check_queue(self, member, guild_id):
         if self.queues.get(guild_id):
@@ -102,8 +104,14 @@ class Music:
         elif voice_client.channel != channel:
             voice_client = await voice_client.move_to(channel)
 
+        if self.bypass_path:
+            process = subprocess.Popen(self.bypass_path)
+            await asyncio.sleep(3)
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            process.kill()
+        else:
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
 
-        player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
         #reply = await self.chat.custom_message(f"Сейчас будет играть трек: {player.title}", self.DJ_CHARACTER)
         
         if message.guild.id not in self.queues:

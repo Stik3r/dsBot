@@ -1,2 +1,4 @@
 @echo off
-python startBot.py false
+SET USE_VOICE_ASSISTANT = false
+SET BYPASS_PATH = ""
+python startBot.py %USE_VOICE_ASSISTANT% %BYPASS_PATH%
