@@ -24,13 +24,13 @@ voice_command_interface = None
 voice_assistant = None
 async_task = None
 
-def init(voice_assistant_bool, bypass_path = None):
+def init(voice_assistant_bool):
     load_dotenv()
 
     global chat
     chat = Chat()
     global music
-    music = Music(bot, chat, bypass_path)
+    music = Music(bot, chat)
     global role_manager
     role_manager = RoleManager(bot)
 
