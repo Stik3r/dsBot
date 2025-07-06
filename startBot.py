@@ -11,7 +11,7 @@ def main(voice_assistant):
     bot.run(os.getenv("DISCORD_TOKEN"))
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 1:
         print("Wrong arguments count")
         sys.exit(1)
 
